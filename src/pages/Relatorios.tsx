@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { FileText, Download, Calendar, Building2, Users } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 type TipoRelatorio = 'acessibilidade' | 'voluntarios' | 'completo';
 
@@ -42,12 +40,25 @@ export function Relatorios() {
   const handleGerarRelatorio = async () => {
     setGerando(true);
     
-    // Simular geração de relatório
-    setTimeout(() => {
-      setGerando(false);
-      // Aqui você implementaria a lógica real de geração do relatório
+    try {
+      // Aqui seria implementada a lógica real de geração do relatório
+      console.log('🔄 Gerando relatório:', { 
+        tipo: tipoRelatorio, 
+        dataInicio, 
+        dataFim 
+      });
+      
+      // Simular tempo de geração
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log('✅ Relatório gerado com sucesso');
       alert(`Relatório ${tipoRelatorio} gerado com sucesso!`);
-    }, 2000);
+    } catch (error) {
+      console.error('❌ Erro ao gerar relatório:', error);
+      alert('Erro ao gerar relatório. Tente novamente.');
+    } finally {
+      setGerando(false);
+    }
   };
 
   return (
@@ -200,27 +211,12 @@ export function Relatorios() {
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Relatórios Recentes</h2>
         </div>
-        <div className="divide-y divide-gray-200">
-          {[
-            { tipo: 'Completo', data: new Date(), usuario: 'Admin' },
-            { tipo: 'Acessibilidade', data: new Date(Date.now() - 86400000), usuario: 'Admin' },
-            { tipo: 'Voluntários', data: new Date(Date.now() - 172800000), usuario: 'Admin' },
-          ].map((relatorio, index) => (
-            <div key={index} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  Relatório {relatorio.tipo}
-                </p>
-                <p className="text-sm text-gray-500">
-                  Gerado em {format(relatorio.data, "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
-                </p>
-              </div>
-              <button className="flex items-center gap-2 text-blue-600 hover:text-blue-800">
-                <Download className="h-4 w-4" />
-                <span className="text-sm">Baixar</span>
-              </button>
-            </div>
-          ))}
+        <div className="p-6">
+          <div className="text-center py-8">
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum relatório encontrado</h3>
+            <p className="text-gray-600">Os relatórios gerados aparecerão aqui para download.</p>
+          </div>
         </div>
       </div>
     </div>

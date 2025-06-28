@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Popup, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Popup, CircleMarker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { localService } from '../services/localService';
-import type { LocalDto } from '../types/api';
+import type { LocalDto, AvaliacaoLocalDto } from '../types/api';
 
 // Configurar ícones do Leaflet
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,23 +15,260 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// Extensão do window para armazenar referência do mapa
+declare global {
+  interface Window {
+    leafletMap?: L.Map;
+  }
+}
+
+// Componente para capturar referência do mapa e ajustar bounds
+function MapController({ locais }: { locais: LocalDto[] }) {
+  const map = useMapEvents({});
+
+  useEffect(() => {
+    // Salvar referência do mapa
+    window.leafletMap = map;
+  }, [map]);
+
+  useEffect(() => {
+    if (map && locais.length > 0) {
+      const locaisValidos = locais.filter(local => 
+        local.latitude && local.longitude && 
+        !isNaN(local.latitude) && !isNaN(local.longitude)
+      );
+
+      if (locaisValidos.length > 0) {
+        // Aguardar um pouco antes de ajustar bounds
+        const timer = setTimeout(() => {
+          const bounds = L.latLngBounds(
+            locaisValidos.map(local => [local.latitude, local.longitude])
+          );
+          
+          map.fitBounds(bounds, {
+            padding: [20, 20],
+            maxZoom: 15
+          });
+          
+          console.log('🗺️ Mapa centralizado para mostrar todos os locais');
+        }, 500);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [map, locais]);
+
+  return null;
+}
+
+// Componente do Card de Avaliação
+function AvaliacaoCard({ avaliacao, local }: { avaliacao: AvaliacaoLocalDto; local?: LocalDto }) {
+  const dataAvaliacao = new Date(avaliacao.timestamp * 1000);
+  
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1">
+          <h3 className="font-semibold text-gray-900 text-sm">
+            {local?.descricao || `Local ${avaliacao.idLocal}`}
+          </h3>
+          <p className="text-xs text-gray-500 mt-1">
+            {formatDistanceToNow(dataAvaliacao, { addSuffix: true, locale: ptBR })}
+          </p>
+        </div>
+        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+          avaliacao.acessivel 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {avaliacao.acessivel ? '✓ Acessível' : '✗ Não Acessível'}
+        </div>
+      </div>
+      
+      {avaliacao.observacao && (
+        <p className="text-sm text-gray-600 leading-relaxed">
+          {avaliacao.observacao}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Componente do Drawer
+function AvaliacoesDrawer({ 
+  isOpen, 
+  onClose, 
+  avaliacoes, 
+  locais, 
+  loading 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  avaliacoes: AvaliacaoLocalDto[]; 
+  locais: LocalDto[]; 
+  loading: boolean; 
+}) {
+  const getLocalById = (idLocal: number) => {
+    return locais.find(local => local.idLocal === idLocal);
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Drawer */}
+      <div className={`
+        fixed top-0 right-0 h-full w-96 bg-gray-50 shadow-xl z-50 
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+        lg:relative lg:transform-none lg:shadow-none lg:w-80
+        ${isOpen ? 'lg:block' : 'lg:hidden'}
+      `}>
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Avaliações</h2>
+              <p className="text-sm text-gray-600">{avaliacoes.length} avaliações encontradas</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Fechar painel"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {loading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-sm text-gray-600">Carregando avaliações...</p>
+                </div>
+              </div>
+            ) : avaliacoes.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400 text-4xl mb-4">📝</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma avaliação</h3>
+                <p className="text-gray-600">Ainda não há avaliações cadastradas.</p>
+              </div>
+            ) : (
+              <div className="space-y-0">
+                {avaliacoes.map((avaliacao) => (
+                  <AvaliacaoCard 
+                    key={avaliacao.idAvaliacaoLocal} 
+                    avaliacao={avaliacao}
+                    local={getLocalById(avaliacao.idLocal)} 
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function Mapa() {
   const [locais, setLocais] = useState<LocalDto[]>([]);
+  const [avaliacoes, setAvaliacoes] = useState<AvaliacaoLocalDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [center] = useState<[number, number]>([-23.5505, -46.6333]); // São Paulo como centro padrão
+  const [loadingAvaliacoes, setLoadingAvaliacoes] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [center, setCenter] = useState<[number, number]>([-23.5505, -46.6333]);
+  const [zoom, setZoom] = useState(13);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     loadLocais();
+    loadAvaliacoes();
   }, []);
+
+  // Calcular centro e zoom baseado nos locais
+  useEffect(() => {
+    if (locais.length > 0) {
+      const locaisValidos = locais.filter(local => 
+        local.latitude && local.longitude && 
+        !isNaN(local.latitude) && !isNaN(local.longitude)
+      );
+
+      if (locaisValidos.length > 0) {
+        // Calcular o centro geográfico
+        const avgLat = locaisValidos.reduce((sum, local) => sum + local.latitude, 0) / locaisValidos.length;
+        const avgLng = locaisValidos.reduce((sum, local) => sum + local.longitude, 0) / locaisValidos.length;
+        
+        setCenter([avgLat, avgLng]);
+        
+        // Calcular zoom baseado na dispersão dos pontos
+        const lats = locaisValidos.map(l => l.latitude);
+        const lngs = locaisValidos.map(l => l.longitude);
+        const latRange = Math.max(...lats) - Math.min(...lats);
+        const lngRange = Math.max(...lngs) - Math.min(...lngs);
+        const maxRange = Math.max(latRange, lngRange);
+        
+        // Ajustar zoom baseado no range
+        let newZoom = 13;
+        if (maxRange > 0.1) newZoom = 10;
+        else if (maxRange > 0.05) newZoom = 12;
+        else if (maxRange > 0.01) newZoom = 14;
+        else newZoom = 15;
+        
+        setZoom(newZoom);
+        
+        console.log('🗺️ Centro calculado:', { avgLat, avgLng, zoom: newZoom, range: maxRange });
+      }
+    }
+  }, [locais]);
 
   const loadLocais = async () => {
     try {
+      console.log('🗺️ Iniciando carregamento de locais...');
+      setError(null);
       const data = await localService.listarLocais();
+      console.log('🗺️ Dados recebidos da API:', data);
+      console.log('🗺️ Quantidade de locais:', data.length);
+      
+      // Verificar se os locais têm coordenadas válidas
+      const locaisValidos = data.filter(local => 
+        local.latitude && local.longitude && 
+        !isNaN(local.latitude) && !isNaN(local.longitude)
+      );
+      console.log('🗺️ Locais com coordenadas válidas:', locaisValidos.length);
+      
+      if (locaisValidos.length > 0) {
+        console.log('🗺️ Primeiro local válido:', locaisValidos[0]);
+      }
+      
       setLocais(data);
     } catch (error) {
-      console.error('Erro ao carregar locais:', error);
+      console.error('❌ Erro ao carregar locais:', error);
+      setError(error instanceof Error ? error.message : 'Erro desconhecido');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAvaliacoes = async () => {
+    try {
+      setLoadingAvaliacoes(true);
+      console.log('📝 Iniciando carregamento de avaliações...');
+      const data = await localService.listarAvaliacoes();
+      console.log('📝 Avaliações carregadas:', data.length);
+      setAvaliacoes(data);
+    } catch (error) {
+      console.error('❌ Erro ao carregar avaliações:', error);
+    } finally {
+      setLoadingAvaliacoes(false);
     }
   };
 
@@ -37,6 +276,27 @@ export function Mapa() {
     if (avaliacao >= 4) return '#10b981'; // Verde
     if (avaliacao >= 3) return '#f59e0b'; // Amarelo
     return '#ef4444'; // Vermelho
+  };
+
+  const recentralizarMapa = () => {
+    const map = window.leafletMap;
+    if (map && locais.length > 0) {
+      const locaisValidos = locais.filter(local => 
+        local.latitude && local.longitude && 
+        !isNaN(local.latitude) && !isNaN(local.longitude)
+      );
+
+      if (locaisValidos.length > 0) {
+        const bounds = L.latLngBounds(
+          locaisValidos.map(local => [local.latitude, local.longitude])
+        );
+        
+        map.fitBounds(bounds, {
+          padding: [20, 20],
+          maxZoom: 15
+        });
+      }
+    }
   };
 
   if (loading) {
@@ -50,74 +310,168 @@ export function Mapa() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Erro ao carregar dados</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={loadLocais}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full flex flex-col">
-      <div className="bg-white p-4 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900">Mapa de Acessibilidade</h1>
-        <p className="text-gray-600">Visualização interativa dos locais e seus níveis de acessibilidade</p>
-        
-        <div className="mt-4 flex gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-gray-600">Acessível (4-5)</span>
+    <div className="h-full flex">
+      {/* Mapa principal */}
+      <div className="flex-1 flex flex-col">
+        <div className="bg-white p-4 shadow-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Mapa de Acessibilidade</h1>
+              <p className="text-gray-600">Visualização interativa dos locais e seus níveis de acessibilidade</p>
+            </div>
+            
+            {/* Botões de controle */}
+            <div className="flex gap-2">
+              {locais.length > 0 && (
+                <button
+                  onClick={recentralizarMapa}
+                  className="px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 flex items-center gap-2"
+                  title="Centralizar mapa nos locais"
+                >
+                  🎯 Centralizar
+                </button>
+              )}
+              <button
+                onClick={() => setDrawerOpen(!drawerOpen)}
+                className="px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 flex items-center gap-2"
+                title="Ver avaliações"
+              >
+                📝 Avaliações ({avaliacoes.length})
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-            <span className="text-sm text-gray-600">Parcialmente Acessível (3)</span>
+          
+          {/* Debug info */}
+          <div className="mt-2 text-sm text-gray-500">
+            <span>Total de locais: {locais.length}</span>
+            {locais.length > 0 && (
+              <span className="ml-4">
+                Locais com coordenadas: {locais.filter(l => l.latitude && l.longitude).length}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-            <span className="text-sm text-gray-600">Não Acessível (1-2)</span>
+          
+          <div className="mt-4 flex gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-gray-600">Acessível (4-5)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+              <span className="text-sm text-gray-600">Parcialmente Acessível (3)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+              <span className="text-sm text-gray-600">Não Acessível (1-2)</span>
+            </div>
           </div>
+        </div>
+
+        <div className="flex-1 relative">
+          <MapContainer
+            center={center}
+            zoom={zoom}
+            className="h-full w-full"
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            
+            <MapController locais={locais} />
+            
+            {locais.map((local) => {
+              // Verificar se as coordenadas são válidas
+              if (!local.latitude || !local.longitude || 
+                  isNaN(local.latitude) || isNaN(local.longitude)) {
+                console.warn('🗺️ Local com coordenadas inválidas:', local);
+                return null;
+              }
+
+              const position: [number, number] = [local.latitude, local.longitude];
+              const color = getColorByAccessibility(local.avaliacaoAcessibilidade);
+              
+              console.log('🗺️ Renderizando local:', {
+                id: local.idLocal,
+                position,
+                avaliacao: local.avaliacaoAcessibilidade,
+                color
+              });
+              
+              return (
+                <CircleMarker
+                  key={local.idLocal}
+                  center={position}
+                  radius={20}
+                  fillColor={color}
+                  color={color}
+                  weight={2}
+                  opacity={0.8}
+                  fillOpacity={0.6}
+                >
+                  <Popup>
+                    <div className="p-2">
+                      <h3 className="font-semibold text-gray-900">
+                        {local.descricao || `Local ${local.idLocal}`}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Avaliação: {local.avaliacaoAcessibilidade}/5
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Status: {local.avaliacaoAcessibilidade >= 4 ? 'Acessível' : 
+                                local.avaliacaoAcessibilidade >= 3 ? 'Parcialmente Acessível' : 
+                                'Não Acessível'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Coords: {local.latitude.toFixed(6)}, {local.longitude.toFixed(6)}
+                      </p>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              );
+            })}
+          </MapContainer>
+          
+          {/* Mostrar mensagem se não houver locais */}
+          {locais.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-[1000]">
+              <div className="text-center">
+                <div className="text-gray-400 text-6xl mb-4">📍</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum local encontrado</h3>
+                <p className="text-gray-600">Não há locais cadastrados para exibir no mapa.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 relative">
-        <MapContainer
-          center={center}
-          zoom={13}
-          className="h-full w-full"
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          
-          {locais.map((local) => {
-            const position: [number, number] = [local.latitude, local.longitude];
-            const color = getColorByAccessibility(local.avaliacaoAcessibilidade);
-            
-            return (
-              <CircleMarker
-                key={local.idLocal}
-                center={position}
-                radius={20}
-                fillColor={color}
-                color={color}
-                weight={2}
-                opacity={0.8}
-                fillOpacity={0.6}
-              >
-                <Popup>
-                  <div className="p-2">
-                    <h3 className="font-semibold text-gray-900">
-                      {local.descricao || `Local ${local.idLocal}`}
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Avaliação: {local.avaliacaoAcessibilidade}/5
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Status: {local.avaliacaoAcessibilidade >= 4 ? 'Acessível' : 
-                              local.avaliacaoAcessibilidade >= 3 ? 'Parcialmente Acessível' : 
-                              'Não Acessível'}
-                    </p>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            );
-          })}
-        </MapContainer>
-      </div>
+      {/* Drawer de Avaliações */}
+      <AvaliacoesDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        avaliacoes={avaliacoes}
+        locais={locais}
+        loading={loadingAvaliacoes}
+      />
     </div>
   );
 } 
