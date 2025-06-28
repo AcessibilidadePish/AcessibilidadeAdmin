@@ -32,5 +32,5 @@ export default defineConfig({
       }
     },
   },
-  base: './', // Para funcionar em caminhos relativos
+  base: '/', // Usar paths absolutos para Azure
 })

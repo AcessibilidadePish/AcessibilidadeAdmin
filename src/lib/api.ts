@@ -2,12 +2,12 @@ import axios from 'axios';
 
 // Configuração da URL base da API baseada no ambiente
 const getBaseURL = () => {
-  // Em produção, use a variável de ambiente ou uma URL relativa
+  // Em produção, use a URL da API no Azure
   if (import.meta.env.PROD) {
-    return import.meta.env.VITE_API_URL || '/api';
+    return import.meta.env.VITE_API_URL || 'https://as-acessibilidadewebapi-afcxema8gae9g8h2.brazilsouth-01.azurewebsites.net/api';
   }
   
-  // Em desenvolvimento, use o proxy ou URL completa
+  // Em desenvolvimento, use o proxy local
   return import.meta.env.VITE_API_URL || '/api';
 };
 

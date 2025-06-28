@@ -39,7 +39,7 @@ npm install
 
 3. Configure as variáveis de ambiente:
    - Para desenvolvimento: A API usa proxy para `https://localhost:7236`
-   - Para produção: Configure `VITE_API_URL` conforme necessário
+   - Para produção: A API está configurada para o Azure
 
 ## 🏃‍♂️ Executando o Projeto
 
@@ -57,12 +57,18 @@ npm run preview
 
 ## 🏗️ Build para Produção
 
-### Build Padrão
+### Build Padrão (Desenvolvimento)
 ```bash
 npm run build
 ```
 
-### Build Otimizado
+### Build para Azure (Produção)
+```bash
+npm run build:azure
+```
+Este comando configura automaticamente a URL da API para: `https://as-acessibilidadewebapi-afcxema8gae9g8h2.brazilsouth-01.azurewebsites.net/api`
+
+### Build Genérico
 ```bash
 npm run build:prod
 ```
@@ -88,37 +94,58 @@ dist/
 │   └── index-[hash].js           # Código da aplicação
 ```
 
-## 🌐 Deploy
+## ☁️ Deploy no Azure
 
-### 1. **Deploy Estático (Nginx, Apache, etc.)**
-Após o build, faça upload da pasta `dist/` para seu servidor web.
+### 🎯 API de Produção
+A API está hospedada em: [https://as-acessibilidadewebapi-afcxema8gae9g8h2.brazilsouth-01.azurewebsites.net/](https://as-acessibilidadewebapi-afcxema8gae9g8h2.brazilsouth-01.azurewebsites.net/)
 
-### 2. **Configuração do Servidor**
-Para SPAs com React Router, configure o servidor para:
-```nginx
-# Nginx
-location / {
-  try_files $uri $uri/ /index.html;
+### 1. **Azure Static Web Apps (Recomendado)**
+
+#### Manual:
+1. Execute o build para Azure:
+   ```bash
+   npm run build:azure
+   ```
+2. Faça upload da pasta `dist/` para o Azure Static Web Apps
+3. Configure o arquivo `staticwebapp.config.json` (já incluído no projeto)
+
+#### Automático (CI/CD):
+1. Copie o arquivo `azure-deploy.yml` para `.github/workflows/azure-static-web-apps-deploy.yml`
+2. Configure os secrets no GitHub:
+   - `AZURE_STATIC_WEB_APPS_API_TOKEN`
+3. Push para a branch `main` ativará o deploy automático
+
+### 2. **Azure App Service**
+1. Execute o build para Azure:
+   ```bash
+   npm run build:azure
+   ```
+2. Faça upload da pasta `dist/` para o App Service
+3. Configure o arquivo `web.config` (já incluído no projeto)
+4. Configure startup command: `npm run start`
+
+### 3. **Configuração de CORS**
+Certifique-se de que a API permite requisições do domínio do frontend:
+```json
+{
+  "AllowedOrigins": [
+    "https://seu-frontend.azurestaticapps.net",
+    "https://seu-app-service.azurewebsites.net"
+  ]
 }
 ```
 
-### 3. **Variáveis de Ambiente**
-Configure a URL da API através da variável `VITE_API_URL`:
+## 🌐 Configurações de Produção
+
+### Variáveis de Ambiente
 ```bash
-# .env.production
-VITE_API_URL=https://api.seudominio.com/api
+# .env.production (se necessário personalizar)
+VITE_API_URL=https://as-acessibilidadewebapi-afcxema8gae9g8h2.brazilsouth-01.azurewebsites.net/api
 ```
 
-### 4. **Proxy de API (Recomendado)**
-Configure seu servidor para fazer proxy das requisições `/api` para o backend:
-```nginx
-# Nginx
-location /api/ {
-  proxy_pass https://localhost:7236/api/;
-  proxy_set_header Host $host;
-  proxy_set_header X-Real-IP $remote_addr;
-}
-```
+### URLs Configuradas:
+- **API Produção**: `https://as-acessibilidadewebapi-afcxema8gae9g8h2.brazilsouth-01.azurewebsites.net/api`
+- **API Desenvolvimento**: `https://localhost:7236/api` (via proxy)
 
 ## 🔐 Autenticação
 
@@ -131,10 +158,12 @@ O painel é totalmente responsivo e funciona bem em dispositivos móveis, tablet
 ## 🔧 Scripts Disponíveis
 
 - `npm run dev` - Servidor de desenvolvimento
-- `npm run build` - Build de produção
-- `npm run build:prod` - Build otimizado
+- `npm run build` - Build padrão
+- `npm run build:azure` - Build específico para Azure com API configurada
+- `npm run build:prod` - Build otimizado genérico
 - `npm run preview` - Visualizar build local
 - `npm run serve` - Servir build na porta 4173
+- `npm run start` - Servir build na porta definida por $PORT (Azure)
 - `npm run lint` - Verificar código com ESLint
 - `npm run clean` - Limpar pasta dist
 
@@ -149,6 +178,12 @@ O painel é totalmente responsivo e funciona bem em dispositivos móveis, tablet
 1. **Erro no mapa**: Certifique-se de usar `react-leaflet@4.2.1`
 2. **CSS não carrega**: Verifique se `tailwindcss@3.4.0` está instalado
 3. **Build falha**: Limpe o cache com `rm -rf node_modules/.vite`
+4. **Erro no Azure**: Use `npm run build:azure` ao invés de `npm run serve`
+
+### Troubleshooting Azure
+- **ERR_MODULE_NOT_FOUND**: Use `npm run start` ao invés de `vite preview`
+- **404 em rotas**: Verifique se `staticwebapp.config.json` ou `web.config` estão corretos
+- **CORS Error**: Configure CORS na API para permitir o domínio do frontend
 
 ## 🚀 Melhorias Futuras
 
@@ -158,7 +193,7 @@ O painel é totalmente responsivo e funciona bem em dispositivos móveis, tablet
 3. **Analytics**: Adicionar Google Analytics ou similar
 4. **Testes**: Implementar testes unitários e e2e
 5. **Docker**: Containerização da aplicação
-6. **CI/CD**: Pipeline de deploy automatizado
+6. **CI/CD**: Pipeline de deploy automatizado (já implementado)
 
 ### Endpoints Adicionais Sugeridos:
 - `/api/estatisticas/regiao` - Dados reais de voluntários por região
@@ -187,4 +222,6 @@ Este projeto está sob a licença MIT.
 - ✅ **Otimizações**: Configuradas
 - ✅ **Mapa Interativo**: Funcionando com React-Leaflet 4.2.1
 - ✅ **CSS**: Carregando corretamente com Tailwind 3.4.0
-- 🔄 **Deploy**: Pronto para produção
+- ✅ **Azure Deploy**: Configurado e pronto
+- ✅ **API Integration**: Configurada para produção Azure
+- 🚀 **Deploy**: Pronto para produção no Azure

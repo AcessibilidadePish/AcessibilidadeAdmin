@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:prod": "tsc -b && vite build --mode production",
+    "build:azure": "cross-env VITE_API_URL=https://as-acessibilidadewebapi-afcxema8gae9g8h2.brazilsouth-01.azurewebsites.net/api npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "serve": "vite preview --port 4173",
+    "serve": "npx serve dist -p 4173 -s",
+    "start": "npx serve dist -p $PORT -s",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -33,6 +35,7 @@
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^7.6.3",
     "recharts": "^3.0.2",
+    "serve": "^14.2.4",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
@@ -40,6 +43,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "cross-env": "^7.0.3",
     "eslint": "^9.15.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
