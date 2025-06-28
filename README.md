@@ -14,15 +14,15 @@ Este é um painel web administrativo para gerenciamento de um sistema de acessib
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **React** com **TypeScript**
-- **Vite** como build tool
-- **Tailwind CSS** para estilização
-- **React Router** para roteamento
-- **Axios** para requisições HTTP
-- **React Query** para gerenciamento de estado do servidor
-- **Leaflet** para mapas interativos
-- **Recharts** para gráficos
-- **Lucide React** para ícones
+- **React 18.3.1** com **TypeScript**
+- **Vite 6.3.5** como build tool
+- **Tailwind CSS 3.4.0** para estilização
+- **React Router 7.6.3** para roteamento
+- **Axios 1.10.0** para requisições HTTP
+- **React Query 5.81.5** para gerenciamento de estado do servidor
+- **Leaflet 1.9.4** + **React-Leaflet 4.2.1** para mapas interativos
+- **Recharts 3.0.2** para gráficos
+- **Lucide React 0.525.0** para ícones
 
 ## 📦 Instalação
 
@@ -138,6 +138,18 @@ O painel é totalmente responsivo e funciona bem em dispositivos móveis, tablet
 - `npm run lint` - Verificar código com ESLint
 - `npm run clean` - Limpar pasta dist
 
+## 🐛 Problemas Conhecidos e Soluções
+
+### Versões Compatíveis
+- **React**: Use 18.x (não 19.x)
+- **React-Leaflet**: Use 4.2.1 (compatível com React 18)
+- **Tailwind CSS**: Use 3.4.0 (estável para produção)
+
+### Solução de Problemas
+1. **Erro no mapa**: Certifique-se de usar `react-leaflet@4.2.1`
+2. **CSS não carrega**: Verifique se `tailwindcss@3.4.0` está instalado
+3. **Build falha**: Limpe o cache com `rm -rf node_modules/.vite`
+
 ## 🚀 Melhorias Futuras
 
 ### Sugestões de Implementação:
@@ -169,8 +181,10 @@ Este projeto está sob a licença MIT.
 
 ## ✅ Status do Projeto
 
-- ✅ **Desenvolvimento**: Completo
-- ✅ **Build de Produção**: Funcionando
+- ✅ **Desenvolvimento**: Completo e funcionando
+- ✅ **Build de Produção**: Funcionando perfeitamente
 - ✅ **Responsividade**: Implementada
 - ✅ **Otimizações**: Configuradas
+- ✅ **Mapa Interativo**: Funcionando com React-Leaflet 4.2.1
+- ✅ **CSS**: Carregando corretamente com Tailwind 3.4.0
 - 🔄 **Deploy**: Pronto para produção
