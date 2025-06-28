@@ -50,8 +50,6 @@ export function Relatorios() {
     }, 2000);
   };
 
-  const relatorioSelecionado = relatorios.find(r => r.tipo === tipoRelatorio);
-
   return (
     <div className="p-6 space-y-6">
       <div>

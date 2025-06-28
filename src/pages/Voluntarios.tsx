@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, UserCheck, MapPin, Star } from 'lucide-react';
+import { Users, UserCheck, Star } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { voluntarioService } from '../services/voluntarioService';
 import type { VoluntarioDto } from '../types/api';

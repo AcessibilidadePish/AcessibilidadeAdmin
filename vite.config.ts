@@ -13,5 +13,24 @@ export default defineConfig({
         secure: false, // Para aceitar certificados autoassinados
       }
     }
-  }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separar bibliotecas grandes em chunks separados
+          'react-vendor': ['react', 'react-dom'],
+          'router-vendor': ['react-router-dom'],
+          'query-vendor': ['@tanstack/react-query'],
+          'chart-vendor': ['recharts'],
+          'map-vendor': ['leaflet', 'react-leaflet'],
+          'ui-vendor': ['lucide-react'],
+        }
+      }
+    },
+  },
+  base: './', // Para funcionar em caminhos relativos
 })
