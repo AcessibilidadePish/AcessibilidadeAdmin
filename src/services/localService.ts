@@ -1,5 +1,12 @@
 import { api } from '../lib/api';
-import type { LocalDto, ListarLocalOutput, AvaliacaoLocalDto, ListarAvaliacaoLocalOutput } from '../types/api';
+import type { 
+  LocalDto, 
+  ListarLocalOutput, 
+  AvaliacaoLocalDto, 
+  ListarAvaliacaoLocalOutput,
+  ListarAvaliacoesCompletasOutput,
+  FiltrosAvaliacaoCompleta
+} from '../types/api';
 
 export const localService = {
   async listarLocais(): Promise<LocalDto[]> {
@@ -28,6 +35,31 @@ export const localService = {
     const avaliacoes = data.arrAvaliacaoLocal || [];
     console.log('✅ Avaliações carregadas da API:', avaliacoes.length);
     return avaliacoes;
+  },
+
+  async listarAvaliacoesCompletas(filtros: FiltrosAvaliacaoCompleta = {}): Promise<ListarAvaliacoesCompletasOutput> {
+    console.log('🔄 Carregando avaliações completas da API...', filtros);
+    
+    const params = new URLSearchParams();
+    
+    if (filtros.pagina) params.append('pagina', filtros.pagina.toString());
+    if (filtros.tamanhoPagina) params.append('tamanhoPagina', filtros.tamanhoPagina.toString());
+    if (filtros.localId) params.append('localId', filtros.localId.toString());
+    if (filtros.usuarioId) params.append('usuarioId', filtros.usuarioId.toString());
+    if (filtros.acessivel !== undefined) params.append('acessivel', filtros.acessivel.toString());
+    if (filtros.dataInicio) params.append('dataInicio', filtros.dataInicio);
+    if (filtros.dataFim) params.append('dataFim', filtros.dataFim);
+
+    const url = `/AvaliacaoLocal/ListarAvaliacoesCompletas${params.toString() ? `?${params.toString()}` : ''}`;
+    const { data } = await api.get<ListarAvaliacoesCompletasOutput>(url);
+    
+    console.log('✅ Avaliações completas carregadas da API:', {
+      total: data.total,
+      pagina: data.paginaAtual,
+      avaliacoes: data.avaliacoesCompletas.length
+    });
+    
+    return data;
   },
 
   async criarAvaliacao(avaliacao: {

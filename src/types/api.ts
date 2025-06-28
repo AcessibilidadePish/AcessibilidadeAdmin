@@ -75,6 +75,71 @@ export interface SolicitacaoAjudaDto {
   dataResposta: string;
 }
 
+// Novos tipos para o endpoint ListarAvaliacoesCompletas
+export interface UsuarioAvaliacao {
+  idUsuario: number;
+  nome: string;
+  email: string;
+  telefone: string;
+}
+
+export interface LocalAvaliacao {
+  idLocal: number;
+  descricao: string;
+  latitude: number;
+  longitude: number;
+  avaliacaoAcessibilidade: number;
+}
+
+export interface DispositivoAvaliacao {
+  id: number;
+  numeroSerie: string;
+  dataRegistro: string;
+  usuarioProprietarioId: number;
+}
+
+export interface AvaliacaoCompleta {
+  id: number;
+  localId: number;
+  dispositivoId: number;
+  acessivel: boolean;
+  observacoes: string | null;
+  timestamp: string;
+  local: LocalAvaliacao;
+  usuario: UsuarioAvaliacao;
+  dispositivo: DispositivoAvaliacao;
+}
+
+export interface ListarAvaliacoesCompletasOutput {
+  avaliacoesCompletas: AvaliacaoCompleta[];
+  total: number;
+  paginaAtual: number;
+  tamanhoPagina: number;
+  temProximaPagina: boolean;
+}
+
+export interface FiltrosAvaliacaoCompleta {
+  pagina?: number;
+  tamanhoPagina?: number;
+  localId?: number;
+  usuarioId?: number;
+  acessivel?: boolean;
+  dataInicio?: string;
+  dataFim?: string;
+}
+
+// Tipos para estatísticas por região
+export interface EstatisticaRegiao {
+  regiao: string | null;
+  quantidade: number;
+  percentualDisponivel: number;
+  avaliacaoMedia: number;
+}
+
+export interface EstatisticasPorRegiaoOutput {
+  estatisticas: EstatisticaRegiao[] | null;
+}
+
 // Outputs de listagem
 export interface ListarLocalOutput {
   arrLocal: LocalDto[] | null;

@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { localService } from '../services/localService';
-import type { LocalDto, AvaliacaoLocalDto } from '../types/api';
+import type { LocalDto, AvaliacaoCompleta, FiltrosAvaliacaoCompleta } from '../types/api';
 
 // Configurar ícones do Leaflet
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,19 +61,22 @@ function MapController({ locais }: { locais: LocalDto[] }) {
   return null;
 }
 
-// Componente do Card de Avaliação
-function AvaliacaoCard({ avaliacao, local }: { avaliacao: AvaliacaoLocalDto; local?: LocalDto }) {
-  const dataAvaliacao = new Date(avaliacao.timestamp * 1000);
+// Novo componente de card com dados completos
+function AvaliacaoCompletaCard({ avaliacao }: { avaliacao: AvaliacaoCompleta }) {
+  const dataAvaliacao = new Date(avaliacao.timestamp);
   
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1">
           <h3 className="font-semibold text-gray-900 text-sm">
-            {local?.descricao || `Local ${avaliacao.idLocal}`}
+            {avaliacao.local.descricao}
           </h3>
           <p className="text-xs text-gray-500 mt-1">
             {formatDistanceToNow(dataAvaliacao, { addSuffix: true, locale: ptBR })}
+          </p>
+          <p className="text-xs text-gray-500">
+            Por: {avaliacao.usuario.nome}
           </p>
         </div>
         <div className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -85,31 +88,90 @@ function AvaliacaoCard({ avaliacao, local }: { avaliacao: AvaliacaoLocalDto; loc
         </div>
       </div>
       
-      {avaliacao.observacao && (
-        <p className="text-sm text-gray-600 leading-relaxed">
-          {avaliacao.observacao}
+      {avaliacao.observacoes && (
+        <p className="text-sm text-gray-600 leading-relaxed mb-2">
+          {avaliacao.observacoes}
         </p>
       )}
+
+      <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
+        <span>Avaliação: {avaliacao.local.avaliacaoAcessibilidade}/10</span>
+        <span>Dispositivo: {avaliacao.dispositivo.numeroSerie}</span>
+      </div>
     </div>
   );
 }
 
-// Componente do Drawer
+// Drawer atualizado com paginação e filtros
 function AvaliacoesDrawer({ 
   isOpen, 
-  onClose, 
-  avaliacoes, 
-  locais, 
-  loading 
+  onClose
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
-  avaliacoes: AvaliacaoLocalDto[]; 
-  locais: LocalDto[]; 
-  loading: boolean; 
 }) {
-  const getLocalById = (idLocal: number) => {
-    return locais.find(local => local.idLocal === idLocal);
+  const [avaliacoes, setAvaliacoes] = useState<AvaliacaoCompleta[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [paginacao, setPaginacao] = useState({
+    paginaAtual: 1,
+    tamanhoPagina: 20,
+    total: 0,
+    temProximaPagina: false
+  });
+  const [filtros, setFiltros] = useState<FiltrosAvaliacaoCompleta>({
+    pagina: 1,
+    tamanhoPagina: 20
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      loadAvaliacoes();
+    }
+  }, [isOpen, filtros]);
+
+  const loadAvaliacoes = async () => {
+    try {
+      setLoading(true);
+      const data = await localService.listarAvaliacoesCompletas(filtros);
+      setAvaliacoes(data.avaliacoesCompletas);
+      setPaginacao({
+        paginaAtual: data.paginaAtual,
+        tamanhoPagina: data.tamanhoPagina,
+        total: data.total,
+        temProximaPagina: data.temProximaPagina
+      });
+    } catch (error) {
+      console.error('❌ Erro ao carregar avaliações:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const proximaPagina = () => {
+    if (paginacao.temProximaPagina) {
+      setFiltros(prev => ({ ...prev, pagina: (prev.pagina || 1) + 1 }));
+    }
+  };
+
+  const paginaAnterior = () => {
+    if (paginacao.paginaAtual > 1) {
+      setFiltros(prev => ({ ...prev, pagina: (prev.pagina || 1) - 1 }));
+    }
+  };
+
+  const toggleFiltroAcessivel = () => {
+    setFiltros(prev => ({
+      ...prev,
+      pagina: 1, // Reset para primeira página
+      acessivel: prev.acessivel === undefined ? true : 
+               prev.acessivel === true ? false : undefined
+    }));
+  };
+
+  const getTextoFiltroAcessivel = () => {
+    if (filtros.acessivel === true) return '✓ Acessíveis';
+    if (filtros.acessivel === false) return '✗ Não Acessíveis';
+    return '🔍 Filtrar';
   };
 
   return (
@@ -132,17 +194,33 @@ function AvaliacoesDrawer({
       `}>
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="bg-white p-4 border-b border-gray-200 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Avaliações</h2>
-              <p className="text-sm text-gray-600">{avaliacoes.length} avaliações encontradas</p>
+          <div className="bg-white p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Avaliações</h2>
+                <p className="text-sm text-gray-600">
+                  {paginacao.total} avaliações • Página {paginacao.paginaAtual}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Fechar painel"
+              >
+                ✕
+              </button>
             </div>
+            
+            {/* Filtro rápido */}
             <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Fechar painel"
+              onClick={toggleFiltroAcessivel}
+              className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                filtros.acessivel !== undefined
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
             >
-              ✕
+              {getTextoFiltroAcessivel()}
             </button>
           </div>
           
@@ -159,20 +237,49 @@ function AvaliacoesDrawer({
               <div className="text-center py-8">
                 <div className="text-gray-400 text-4xl mb-4">📝</div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma avaliação</h3>
-                <p className="text-gray-600">Ainda não há avaliações cadastradas.</p>
+                <p className="text-gray-600">
+                  {filtros.acessivel !== undefined 
+                    ? 'Nenhuma avaliação encontrada com os filtros aplicados.' 
+                    : 'Ainda não há avaliações cadastradas.'
+                  }
+                </p>
               </div>
             ) : (
               <div className="space-y-0">
                 {avaliacoes.map((avaliacao) => (
-                  <AvaliacaoCard 
-                    key={avaliacao.idAvaliacaoLocal} 
+                  <AvaliacaoCompletaCard 
+                    key={avaliacao.id} 
                     avaliacao={avaliacao}
-                    local={getLocalById(avaliacao.idLocal)} 
                   />
                 ))}
               </div>
             )}
           </div>
+
+          {/* Paginação */}
+          {!loading && avaliacoes.length > 0 && (
+            <div className="bg-white p-4 border-t border-gray-200 flex items-center justify-between">
+              <button
+                onClick={paginaAnterior}
+                disabled={paginacao.paginaAtual <= 1}
+                className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Anterior
+              </button>
+              
+              <span className="text-sm text-gray-600">
+                {avaliacoes.length} de {paginacao.total}
+              </span>
+
+              <button
+                onClick={proximaPagina}
+                disabled={!paginacao.temProximaPagina}
+                className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Próxima →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -181,17 +288,16 @@ function AvaliacoesDrawer({
 
 export function Mapa() {
   const [locais, setLocais] = useState<LocalDto[]>([]);
-  const [avaliacoes, setAvaliacoes] = useState<AvaliacaoLocalDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingAvaliacoes, setLoadingAvaliacoes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [center, setCenter] = useState<[number, number]>([-23.5505, -46.6333]);
   const [zoom, setZoom] = useState(13);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [totalAvaliacoes, setTotalAvaliacoes] = useState(0);
 
   useEffect(() => {
     loadLocais();
-    loadAvaliacoes();
+    loadTotalAvaliacoes();
   }, []);
 
   // Calcular centro e zoom baseado nos locais
@@ -258,17 +364,16 @@ export function Mapa() {
     }
   };
 
-  const loadAvaliacoes = async () => {
+  const loadTotalAvaliacoes = async () => {
     try {
-      setLoadingAvaliacoes(true);
-      console.log('📝 Iniciando carregamento de avaliações...');
-      const data = await localService.listarAvaliacoes();
-      console.log('📝 Avaliações carregadas:', data.length);
-      setAvaliacoes(data);
+      // Carregar primeira página apenas para obter o total
+      const data = await localService.listarAvaliacoesCompletas({ 
+        pagina: 1, 
+        tamanhoPagina: 1 
+      });
+      setTotalAvaliacoes(data.total);
     } catch (error) {
-      console.error('❌ Erro ao carregar avaliações:', error);
-    } finally {
-      setLoadingAvaliacoes(false);
+      console.error('❌ Erro ao carregar total de avaliações:', error);
     }
   };
 
@@ -355,7 +460,7 @@ export function Mapa() {
                 className="px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 flex items-center gap-2"
                 title="Ver avaliações"
               >
-                📝 Avaliações ({avaliacoes.length})
+                📝 Avaliações ({totalAvaliacoes})
               </button>
             </div>
           </div>
@@ -468,9 +573,6 @@ export function Mapa() {
       <AvaliacoesDrawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        avaliacoes={avaliacoes}
-        locais={locais}
-        loading={loadingAvaliacoes}
       />
     </div>
   );
